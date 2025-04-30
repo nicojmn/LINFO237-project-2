@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"net"
 	"os"
+	"strconv"
 	"sync"
 
 	"golang.org/x/crypto/ssh"
@@ -145,16 +147,55 @@ func main() {
 	host := parser.String("", "host", &argparse.Options{
 		Required: true,
 		Help:     "Target host",
+		Validate: func(args []string) error {
+			if len(args[0]) == 0 {
+				return errors.New("host cannot be empty")
+			} else {
+				ip := net.ParseIP(args[0])
+				if ip == nil {
+					return errors.New("host must be a valid IP address")
+				}
+				if ip.To4() == nil {
+					return errors.New("host must be a valid IPv4 address")
+				}
+				if ip.IsLoopback() {
+					return errors.New("host cannot be a loopback address")
+				}
+
+				if ip.IsUnspecified() {
+					return errors.New("host cannot be an unspecified address")
+				}
+			}
+			return nil
+		},
 	})
 
 	port := parser.Int("", "port", &argparse.Options{
-		Required: true,
-		Help:     "Target port",
+		Required: false,
+		Help:     "Target port, default is 22",
+		Default:  22,
+		Validate: func(args []string) error {
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return errors.New("port must be a number")
+			}
+			
+			if val <= 0 || val >= 65535 {
+				return errors.New("port must be between 1 and 65535")
+			}
+			return nil
+		},
 	})
 
 	username := parser.String("u", "username", &argparse.Options{
 		Required: true,
 		Help:     "Account username to brute force",
+		Validate: func(args []string) error {
+			if len(args[0]) == 0 {
+				return errors.New("username cannot be empty")
+			}
+			return nil
+		},
 	})
 
 	password := parser.String("", "password", &argparse.Options{
@@ -176,16 +217,23 @@ func main() {
 	threaded := parser.Int("t", "threaded", &argparse.Options{
 		Required: false,
 		Help:     "Enable threaded brute force mode with a limit of n threads",
+		Validate: func(args []string) error {
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return errors.New("thread count must be a number")
+			}
+
+			if val <= 0 {
+				return errors.New("thread count must be greater than 0")
+			}
+			return nil
+		},
 	})
 
 	// parse arguments
 
 	if err := parser.Parse(os.Args); err != nil {
 		logger.Fatal().Err(err).Msg("Failed to parse arguments")
-	}
-
-	if *host == "" || *port <= 0 || *port >= 65535 || *username == "" {
-		logger.Fatal().Msg("Invalid arguments")
 	}
 
 	if *debug {
