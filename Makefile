@@ -10,4 +10,16 @@ ssh-attack:
 install:
 	bash install.sh
 
-.PHONY: all
+clean:
+	@echo "Cleaning up..."
+	@rm -rf bin/
+	@rm -f bin.zip
+	@echo "Cleaned up successfully."
+
+bin-zip: ssh-attack
+	@echo "Creating zip file for binaries..."
+	@cd bin/; \
+	zip -r ../bin.zip *;
+	@echo "Zip file created successfully."
+
+.PHONY: all clean
