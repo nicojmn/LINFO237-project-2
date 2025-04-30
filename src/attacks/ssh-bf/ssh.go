@@ -223,8 +223,8 @@ func main() {
 				return errors.New("thread count must be a number")
 			}
 
-			if val <= 0 {
-				return errors.New("thread count must be greater than 0")
+			if val <= 1 {
+				return errors.New("thread count must be greater than 1")
 			}
 			return nil
 		},
