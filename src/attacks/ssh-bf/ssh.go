@@ -198,7 +198,7 @@ func main() {
 		},
 	})
 
-	password := parser.String("", "password", &argparse.Options{
+	password := parser.String("p", "password", &argparse.Options{
 		Required: false,
 		Help:     "Password to brute force, mutually exclusive with password list, only one of them should be used",
 	})
@@ -216,7 +216,7 @@ func main() {
 
 	threaded := parser.Int("t", "threaded", &argparse.Options{
 		Required: false,
-		Help:     "Enable threaded brute force mode with a limit of n threads",
+		Help:     "Enable threaded brute force mode with a limit of n threads. No effect if password list is not used",
 		Validate: func(args []string) error {
 			val, err := strconv.Atoi(args[0])
 			if err != nil {
