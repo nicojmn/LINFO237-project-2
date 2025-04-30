@@ -24,8 +24,12 @@ go.work.sum
 # env file
 .env
 
-# objects file
+# binary file
+bin/*
 *.o
+
+# zip output
+*.zip
 
 # vscode
 **/.vscode
