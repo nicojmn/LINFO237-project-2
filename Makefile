@@ -9,17 +9,30 @@ ssh-attack:
 
 install:
 	bash install.sh
+	
 
 clean:
 	@echo "Cleaning up..."
 	@rm -rf bin/
 	@rm -f bin.zip
+	@rm -f project.zip
+	@find . -name "*.o" -delete
 	@echo "Cleaned up successfully."
 
-bin-zip: ssh-attack
-	@echo "Creating zip file for binaries..."
-	@cd bin/; \
-	zip -r ../bin.zip *;
-	@echo "Zip file created successfully."
+# Tu aimes mon usine à gaz ? Elle consomme plus que l'Allemagne
+zip:
+	@echo "Zipping project files..."
+	@mkdir -p /tmp/project
+	@rsync -a --exclude=bin/ --exclude='*.zip' --exclude='.git*' --exclude='*.pdf' --exclude='*.md' --exclude='.vscode' ./ /tmp/project/
+	@cd /tmp && zip -r project.zip project
+	@mv /tmp/project.zip ./project.zip
+	@rm -rf /tmp/project /tmp/project.zip
+	@echo "Project files zipped successfully."
 
-.PHONY: all clean
+upload: clean zip
+	@echo "Uploading zip file to remote server..."
+	scp project.zip mininet-vm:/home/mininet/
+	@echo "Zip file uploaded successfully."
+	
+
+.PHONY: all clean ssh-attack
