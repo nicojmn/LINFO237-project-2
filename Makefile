@@ -7,6 +7,13 @@ ssh-attack:
 	chmod +x ../../../bin/ssh-bf; \
 	echo "Brute-force SSH attack binary compiled successfully."; \
 
+dos-attack:
+	@cd src/attacks/rf-dos; \
+	echo "Compiling Reflected DoS attack binary..."; \
+	go build -o ../../../bin/rf-dos rf-dos.go; \
+	chmod +x ../../../bin/rf-dos; \
+	echo "Reflected DoS attack binary compiled successfully."; \
+
 install:
 	bash install.sh
 	
