@@ -9,6 +9,18 @@ Authors:
 
 ## Protections
 
+### SYN flood
+
+A nftables script block every IP address that sends more than 10 SYN packets in  minute. It also blocks every SYN packet if the number of SYN packets is greater sent per second than 10/second.
+
+TODO : paste script
+
+We also enabled the SYN cookies option in the kernel to help mitigate SYN flood attacks. Here is the command :
+
+```bash
+sysctl -w net.ipv4.tcp_syncookies=1
+```
+
 ## Attacks
 
 ### SSH brute-force
