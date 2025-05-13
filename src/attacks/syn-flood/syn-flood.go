@@ -86,7 +86,8 @@ func main() {
 
 	parser := argparse.NewParser("syn-flood", "SYN flood attack tool")
 
-	srcIP := parser.StringPositional(&argparse.Options{
+
+	srcIP := parser.String("", "src-ip", &argparse.Options{
 		Required: true,
 		Help:     "Source IP address",
 		Validate: func(args []string) error {
@@ -109,7 +110,7 @@ func main() {
 		},
 	})		
 
-	dstIP := parser.StringPositional(&argparse.Options{
+	dstIP := parser.String("", "dst-ip", &argparse.Options{
 		Required: true,
 		Help:     "Destination IP address",
 		Validate: func(args []string) error {
@@ -164,8 +165,6 @@ func main() {
 		},
 	})
 
-
-
 	iface := parser.String("i", "interface", &argparse.Options{
 		Required: true,
 		Help:     "Network interface to use for sending packets",
@@ -187,8 +186,8 @@ func main() {
 
 	number := parser.Int("n", "number", &argparse.Options{
 		Required: false,
-		Help:     "Number of packets to send, default is 10, -1 for infinite",
-		Default:  10,
+		Help:     "Number of packets to send, -1 for infinite",
+		Default:  100,
 		Validate: func(args []string) error {
 			val, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -203,7 +202,7 @@ func main() {
 
 	debug := parser.Flag("D", "debug", &argparse.Options{
 		Required: false,
-		Help:     "Enable debug mode. You should avoid using this in production , or with threaded mode, as it slows down the program",
+		Help:     "Enable debug mode. You should avoid using this in production, or with threaded mode, as it slows down the program",
 		Default:  false,
 	})
 
