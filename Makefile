@@ -7,6 +7,13 @@ ssh-attack:
 	chmod +x ../../../bin/ssh-bf; \
 	echo "Brute-force SSH attack binary compiled successfully."; \
 
+syn-flood:
+	@cd src/attacks/syn-flood; \
+	echo "Compiling SYN flood attack binary..."; \
+	go build -o ../../../bin/syn-flood syn-flood.go; \
+	chmod +x ../../../bin/syn-flood; \
+	echo "SYN flood attack binary compiled successfully."; \
+	
 install:
 	bash install.sh
 	
@@ -20,7 +27,7 @@ clean:
 	@echo "Cleaned up successfully."
 
 # Tu aimes mon usine à gaz ? Elle consomme plus que l'Allemagne
-zip:
+zip: ssh-attack syn-flood
 	@echo "Zipping project files..."
 	@mkdir -p /tmp/project
 	@rsync -a --exclude=bin/ --exclude='*.zip' --exclude='.git*' --exclude='*.pdf' --exclude='*.md' --exclude='.vscode' ./ /tmp/project/
