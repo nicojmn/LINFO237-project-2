@@ -49,11 +49,13 @@ func BruteForce(host string, port int, username string, password string) bool {
 	}
 	defer session.Close()
 
-	err = session.Run("touch /tmp/ssh-bf-success")
+	err = session.Run("echo Brute force successful > /tmp/ssh-bf-success.txt")
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to run command on SSH server")
 		return false
 	}
+
+
 
 	return true
 }
