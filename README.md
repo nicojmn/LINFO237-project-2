@@ -1,8 +1,8 @@
-# LINFO237-project-2 : network attacks and protection
+# LINFO2347-project-2 : network attacks and protection
 
 Authors:
 
-- **Da Silva Mathos, Pedro** - *NOMA*
+- **Da Silva Mathos, Pedro** - *02092000*
 - **Jeanmenne, Nicolas** - *48741900*
 
 ## Introduction
