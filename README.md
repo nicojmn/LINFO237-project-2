@@ -7,66 +7,92 @@ Authors:
 
 ## Introduction
 
-## Protections
+This project focuses on both attacking and protecting a entreprise network simulated through mininet. We implemented attacks
+script in go , which we find more suited for network and multithreading programming. We also used the nftables firewall to protect the network from attacks.
+We used the topology from the homework with some modifications. The attacks we implemented are :
 
-### SYN flood
+- Reflected DoS
+- SSH brute-force
+- SYN scan
+- SYN flood
+
+## Installation
+
+### Requirements
+
+- [Go v1.24.2](https://go.dev/dl/)
+- [Python 3](https://www.python.org/downloads/)
+- [nftables](https://netfilter.org/projects/nftables/index.html)
+
+For sucessful installation, we recommend following the [installation guide for go](https://go.dev/doc/install) to make sure you have the right version of go installed and loaded in your PATH.
+
+### Launch a script on mininet
+
+1. Add your public key to the mininet VM (and allow pubkey authentication if not already done)
+2. Replace `SSH_HOST` with the IP/hostname and `SSH_USER` with the username of the mininet VM in the script
+3. On your host machine, run `make upload` to upload the script to the mininet VM
+4. On the VM, run `unzip project.zip`
+5. Run `sudo -E python3 project/src/topo.py` to start the mininet topology, it will also compile the go scripts
+6. Connect to a host in the topology and
+7. For attacks : run `<host> ./project/bin/<script> <args>`
+8. For protection : run `nft -f ./project/src/protections/<script>.nft`
+9. Basic dmz firewall can be enabled by running `nft -f ./project/src/protections/dmz-firewall.nft to any dmz host.
+
+Below is an example of how to run the SSH brute-force attack on the mininet VM. The SSH server is running on the host `ws3` and the user is `user`. The password list is `pass.txt`
+
+```bash
+# Launch the mininet topology, once in mininet you can either attack or protect
+# attack
+internet ./project/bin/ssh-bf --host 10.1.0.3 -u user -l ./project/src/attacks/ssh-bf/pass.txt
+# protection
+ws3 nft -f ./project/src/protections/ssh-bf/ssh-bf.nft
+```
+
+## Reflected DoS
+
+### Attack
+
+The reflected DoS tool sends a large number of UDP packets to a given IP address and port. The DNS server will respond to the target IP address. 
+
+### Protection
+
+The nftables script blocks every IP address that sends more than 10 packets in a minute.
+
+## SSH brute-force
+
+### Attack
+
+The SSH brute-force attack CLI tool allows you to perform a brute-force attack on an SSH server. You're free to choose the host, user, port and password list. The script will try every password in the list until it finds the right one or exhausts the list. It also has a threaded mode to speed up the attack,
+if you wanna use it, beware that if you set the number of threads too high, packets will be dropped. We recommend using a number of threads between 2 and 8.
+
+### Protection
+
+The nftables script blocks every IP address that tries to connect to the SSH server more than 3 times in a minute. You may optionally change the SSH port in `/etc/ssh/sshd_config` to make it harder for attackers / naive bots to find the SSH server, you may also allow only public key authentication to limit the attack surface.
+
+## SYN scan
+
+### Attack
+
+The SYN scan tool allows you to scan a given IP address and port range. It initiates a TCP connection to the target IP address and list of ports. The script will send a SYN packet to each port and wait for a SYN_ACK or RST packet. Once done, it will print the list of open ports. 
+
+
+### Protection
+
+The nftables script blocks every IP address that initiates more than 10 connections in a minute. It also blocks every SYN packet if the number of SYN packets sent per second is greater than 10/. Loopback packets are not blocked. 
+
+## SYN flood
+
+### Attack
+
+The script is also a CLI tool written in Go. It's send *n (or infinite)* SYN packets to a given IP address and port. Below is the usage information, arguments surrounded by  squared brackets are optional.
+
+
+### Protection
 
 A nftables script block every IP address that sends more than 10 SYN packets in  minute. It also blocks every SYN packet if the number of SYN packets is greater sent per second than 10/second.
-
-TODO : paste script
 
 We also enabled the SYN cookies option in the kernel to help mitigate SYN flood attacks. Here is the command :
 
 ```bash
 sysctl -w net.ipv4.tcp_syncookies=1
 ```
-
-## Attacks
-
-### SSH brute-force
-
-#### Usage
-
-The SSH brute-force attack tool is a simple command-line script that allows you to perform a brute-force attack on an SSH server. It has no dependencies and is written in Go. Below is the usage information, arguments surrounded by brackets are optional.
-
-If you wanna use the threaded mode, beware that if you set the number of threads too high, packets will be dropped. We recommend using a number of threads between
-
-**TODO: find boundaries**
-
-```bash
-TODO : Paste go run ssh.go -h when done
-```
-
-### SYN flood
-
-The script is also a CLI tool written in Go. It's send *n (or infinite)* SYN packets to a given IP address and port. Below is the usage information, arguments surrounded by  squared brackets are optional.
-
-#### Usage
-
-```no-highlight
-usage: syn-flood [-h|--help] --src-ip "<value>" --dst-ip "<value>"
-                 [-s|--src-port <integer>] [-d|--dst-port <integer>]
-                 -i|--interface "<value>" [-n|--number <integer>] [-D|--debug]
-                 [-t|--threaded]
-
-                 SYN flood attack tool
-
-Arguments:
-
-  -h  --help       Print help information
-      --src-ip     Source IP address
-      --dst-ip     Destination IP address
-  -s  --src-port   Source port, must be between 1025 and 65535, default is
-                   random. Default: 61963
-  -d  --dst-port   Destination port, must be between 1025 and 65535, default is
-                   random. Default: 9582
-  -i  --interface  Network interface to use for sending packets
-  -n  --number     Number of packets to send, -1 for infinite. Default: 100
-  -D  --debug      Enable debug mode. You should avoid using this in
-                   production, or with threaded mode, as it slows down the
-                   program. Default: false
-  -t  --threaded   Enable packet creation and socket threading, default is
-                   false. Default: false
-```
-
-## Conclusion
