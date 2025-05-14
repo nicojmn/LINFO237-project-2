@@ -27,10 +27,10 @@ dos-attack:
 	echo "Reflected DoS attack binary compiled successfully."; \
 
 syn-scan:
-	@cd src/attacks/rf-dos; \
+	@cd src/attacks/syn-scan; \
 	echo "Compiling Port scanning attack binary..."; \
 	go build -o ../../../bin/syn-scan syn-scan.go; \
-	chmod +x ../../../bin/rf-dos; \
+	chmod +x ../../../bin/syn-scan; \
 	echo "Port scanning attack binary compiled successfully."; \
 
 
@@ -49,7 +49,7 @@ clean:
 	@echo "Cleaned up successfully."
 
 # Gas station but meh it's working
-zip: ssh-attack syn-flood
+zip: ssh-attack syn-flood dos-attack syn-scan
 	@echo "Zipping project files..."
 	@mkdir -p /tmp/project
 	@rsync -a --exclude=bin/ --exclude='*.zip' --exclude='.git*' --exclude='*.pdf' --exclude='*.md' --exclude='.vscode' ./ /tmp/project/

@@ -59,3 +59,20 @@ else
     go mod download
     go mod tidy
 fi
+
+cd "$INIT_CD" || exit 1
+
+SYNFLOOD_DIR="src/attacks/syn-flood"
+if [ ! -d "$SYNFLOOD_DIR" ]; then
+    mkdir -p "$SYNFLOOD_DIR"
+fi
+
+if [ ! -f "$SYNFLOOD_DIR/go.mod" ]; then
+    echo "Initializing go module"
+    go mod init group69/syn-flood
+    go mod tidy
+else
+    echo "Updating go module"
+    go mod download
+    go mod tidy
+fi
