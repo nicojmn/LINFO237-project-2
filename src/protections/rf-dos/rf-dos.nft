@@ -1,0 +1,12 @@
+#!/usr/bin/env nft
+
+table ip filter {
+    set deny-dns {
+        type ipv4_addr; flags dynamic; timeout 5m;
+    }
+    chain RFDOS {
+        type filter hook input priority 0; policy accept;
+        ip saddr @deny-dns drop
+        ip protocol udp ct state new, untracked limit rate over 10/minute add @deny-dns { ip saddr }
+    }
+}
