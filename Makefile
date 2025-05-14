@@ -1,3 +1,6 @@
+SSH_HOST=mininet-vm
+SSH_USER=mininet
+
 all: install
 
 ssh-attack:
@@ -36,7 +39,7 @@ clean:
 	@find . -name "*.o" -delete
 	@echo "Cleaned up successfully."
 
-# Tu aimes mon usine à gaz ? Elle consomme plus que l'Allemagne
+# Gas station but meh it's working
 zip: ssh-attack syn-flood
 	@echo "Zipping project files..."
 	@mkdir -p /tmp/project
@@ -48,7 +51,7 @@ zip: ssh-attack syn-flood
 
 upload: clean zip
 	@echo "Uploading zip file to remote server..."
-	scp project.zip mininet-vm:/home/mininet/
+	scp project.zip $(SSH_USER)@$(SSH_HOST):/home/$(SSH_USER)/project.zip
 	@echo "Zip file uploaded successfully."
 	
 

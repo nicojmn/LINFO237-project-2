@@ -1,0 +1,30 @@
+#!/usr/bin/env nft
+
+table inet filter {
+    
+    chain input {
+        type filter hook input priority 0; policy accept;
+        
+        ct state established,related accept
+        ct state invalid drop
+
+        tcp dport { 21, 22, 80, 443 } accept
+        udp dport { 123, 5353 } accept
+
+        icmp type echo-request accept
+        
+    }
+
+    chain forward {
+        type filter hook forward priority 0; policy accept;
+    }
+
+    chain output {
+        type filter hook output priority 0; policy accept;
+
+        ct state established,related accept
+        ct state invalid drop
+
+        icmp type echo-reply accept
+    }
+}
