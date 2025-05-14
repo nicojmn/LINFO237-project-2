@@ -23,6 +23,13 @@ dos-attack:
 	chmod +x ../../../bin/rf-dos; \
 	echo "Reflected DoS attack binary compiled successfully."; \
 
+port-scan:
+	@cd src/attacks/rf-dos; \
+	echo "Compiling Port scanning attack binary..."; \
+	go build -o ../../../bin/rf-dos port-scan.go; \
+	chmod +x ../../../bin/rf-dos; \
+	echo "Port scanning attack binary compiled successfully."; \
+
 
 install:
 	bash install.sh
