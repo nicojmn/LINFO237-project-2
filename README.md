@@ -2,12 +2,17 @@
 
 Authors:
 
-- **Da Silva Mathos, Pedro** - *02092000*
+- **Da Silva Matos, Pedro** - *02092000*
 - **Jeanmenne, Nicolas** - *48741900*
 
 ## Introduction
 
 ## Protections
+
+### Reflected DoS
+
+A nftables script block adds every IP address that sends more than 10 DNS packets in minute to a blacklist that drops the packets received my IPs in that list.
+ 
 
 ### SYN flood
 
@@ -36,6 +41,13 @@ If you wanna use the threaded mode, beware that if you set the number of threads
 ```bash
 TODO : Paste go run ssh.go -h when done
 ```
+
+### Reflected Dos
+
+#### Usage
+The reflected Dos attack tool is a script that spoofs the source IP of a victim and make his machine use a lot of ressources because it receives several response from request it didn't ask.
+
+If help needed for the arguments use ```go run rf-dos.go -h```
 
 ### SYN flood
 
