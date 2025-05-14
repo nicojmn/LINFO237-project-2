@@ -6,7 +6,7 @@ table ip filter {
     }
     chain input {
         type filter hook input priority 0; policy accept;
-        ip saddr @port_scanners drop
+        ip saddr @syn_scanners drop
         tcp ct state new,untracked limit rate over 20/minute add @syn_scanners { ip saddr }
     }
 }
