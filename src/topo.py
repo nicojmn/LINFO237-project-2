@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     os.system('rm project.zip')
     os.system('cd project && make install')
-    os.system('cd project && make ssh-attack')
+    os.system('cd project && make attacks')
     os.system('cd project && chmod +x bin/*')
     os.system('mv project/bin/* /home/mininet/bin/')
 

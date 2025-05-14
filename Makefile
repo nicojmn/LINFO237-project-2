@@ -27,6 +27,8 @@ dos-attack:
 install:
 	bash install.sh
 	
+attacks: install ssh-attack syn-flood dos-attack
+	@echo "All attacks compiled successfully."
 
 clean:
 	@echo "Cleaning up..."
