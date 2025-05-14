@@ -16,6 +16,30 @@ We used the topology from the homework with some modifications. The attacks we i
 - SYN scan
 - SYN flood
 
+### Archictecture
+
+```no-highlight
+LINFO237-project-2
+├── bin
+│   ├── rf-dos
+│   ├── ssh-bf
+│   ├── syn-flood
+│   └── syn-scan
+├── group69.zip
+├── install.sh
+├── Makefile
+├── README.md
+├── slides
+│   ├── pics
+│   ├── slides.md
+│   └── slides.pdf
+├── src
+│   ├── attacks
+│   ├── protections
+│   └── topo.py
+└── statement.pdf
+```
+
 ## Installation
 
 ### Requirements
