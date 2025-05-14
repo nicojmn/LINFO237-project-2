@@ -42,17 +42,17 @@ fi
 
 cd "$INIT_CD" || exit 1
 
-PORTSCAN_DIR="src/attacks/portScan"
+SYNSCAN_DIR="src/attacks/syn-scan"
 
-if [ ! -d "$PORTSCAN_DIR" ]; then
-    mkdir -p "$PORTSCAN_DIR"
+if [ ! -d "$SYNSCAN_DIR" ]; then
+    mkdir -p "$SYNSCAN_DIR"
 fi
 
-cd "$PORTSCAN_DIR" || exit 1
+cd "$SYNSCAN_DIR" || exit 1
 
-if [ ! -f "$PORTSCAN_DIR/go.mod" ]; then
+if [ ! -f "$SYNSCAN_DIR/go.mod" ]; then
     echo "Initializing go module"
-    go mod init group69/port-scan
+    go mod init group69/syn-scan
     go mod tidy
 else
     echo "Updating go module"

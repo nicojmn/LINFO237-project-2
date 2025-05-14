@@ -1,12 +1,12 @@
 #!/usr/bin/env nft
 
 table ip filter {
-    set port_scanners {
+    set syn_scanners {
         type ipv4_addr; flags dynamic, timeout; timeout 10m; size 65536;
     }
     chain input {
         type filter hook input priority 0; policy accept;
         ip saddr @port_scanners drop
-        tcp ct state new,untracked limit rate over 20/minute add @port_scanners { ip saddr }
+        tcp ct state new,untracked limit rate over 20/minute add @syn_scanners { ip saddr }
     }
 }
